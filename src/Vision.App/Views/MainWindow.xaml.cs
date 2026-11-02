@@ -332,6 +332,15 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () => _chatView.InsertText(PromptTimeline.Quote(record)));
     }
 
+    /// <summary>Put <paramref name="text"/> and <paramref name="files"/> in the selected chat's composer, unsent (Ludworks
+    /// Browser's "Send to AI").</summary>
+    public void PrefillComposer(string text, IReadOnlyList<string> files)
+    {
+        if (Model.Host.Selected is null) return;
+        if (Model.IsCodeMode) Model.Code.ShowChat = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () => _chatView.Prefill(text, files));
+    }
+
     /// <summary>Show the right column on a tab; the same shortcut again hides it.</summary>
     private void ToggleRunTab(RunTab tab)
     {
