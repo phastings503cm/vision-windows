@@ -683,6 +683,17 @@ public partial class ChatView : UserControl
         ScrollIfPinned();
     }
 
+    /// <summary>Replace the draft with <paramref name="text"/> and attach <paramref name="files"/> (Ludworks Browser's "Send
+    /// to AI"); nothing is sent.</summary>
+    public void Prefill(string text, IReadOnlyList<string> files)
+    {
+        if (_session is null) return;
+        Composer.Text = text;
+        Composer.CaretIndex = Composer.Text.Length;
+        foreach (var path in files) Stage(path);
+        FocusComposer();
+    }
+
     /// <summary>Drop <paramref name="text"/> into the composer (the Prompts timeline's "Add to composer"), after what is there.</summary>
     public void InsertText(string text)
     {

@@ -801,6 +801,12 @@ model servers (into `openclaw.json`, after a backup; a file with comments gets a
 from) — to the install you pick, inside WSL too. When a name is already taken, you choose: keep both, replace
 what is there, or skip it.
 
+**Ludworks Browser's Send to AI** starts Vision with `Vision.exe <folder> --ludworks-request=<folder>\request.json`
+(or hands both to the Vision already open). Vision opens the folder as the project, starts a new chat in it, puts the
+request's prompt in the composer and attaches the page's screenshot, and brings its window forward; you read it and
+send it. Only requests under `%TEMP%\Ludworks Browser handoffs\` are opened, and only files there are attached: one
+from anywhere else, or one that isn't a request from the browser, is refused with a banner saying why.
+
 ## Remembered notes
 
 Vision keeps a long-term memory that survives between chats: short notes about you and your projects — *the

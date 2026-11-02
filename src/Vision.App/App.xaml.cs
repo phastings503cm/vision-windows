@@ -110,8 +110,7 @@ public partial class App : Application
         window.Show();
         Model.Start();
 
-        var folder = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
-        if (folder is not null && Directory.Exists(folder)) Model.OpenProject(folder);
+        OpenArguments(args);
 
         _instance?.Listen(forwarded => Dispatcher.BeginInvoke(() => HandleForwarded(forwarded)));
 
@@ -235,8 +234,41 @@ public partial class App : Application
     private void HandleForwarded(string[] args)
     {
         if (MainWindow is MainWindow window) window.BringToFront();
+        OpenArguments(args);
+    }
+
+    /// <summary>What a launch asks for, first or forwarded: a folder to open as the project, and maybe a request from
+    /// Ludworks Browser to start a chat in it.</summary>
+    private void OpenArguments(string[] args)
+    {
         var folder = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
+        if (LudworksRequest.FindArgument(args) is { } request)
+        {
+            OpenLudworksRequest(request, folder);
+            return;
+        }
         if (folder is not null && Directory.Exists(folder)) Model.OpenProject(folder);
+    }
+
+    /// <summary>Ludworks Browser's "Send to AI": a new chat in the handoff folder with the prompt in the composer and the
+    /// page's screenshot attached. The user sends it.</summary>
+    private void OpenLudworksRequest(string file, string? folder)
+    {
+        var (request, problem) = LudworksRequest.Load(file);
+        if (request is null)
+        {
+            Model.Host.Banner = $"Vision couldn't open what Ludworks Browser sent. {problem}";
+            if (folder is not null && Directory.Exists(folder)) Model.OpenProject(folder);
+            return;
+        }
+        // The folder the browser named, or the one the request is in.
+        var project = folder is not null && Directory.Exists(folder) ? folder : Path.GetDirectoryName(Path.GetFullPath(file))!;
+        Model.OpenProject(project, activateSession: false);
+        Model.NewChat();
+        if (MainWindow is not MainWindow window) return;
+        var screenshot = request.ScreenshotToAttach();
+        window.PrefillComposer(request.Prompt, screenshot is null ? [] : [screenshot]);
+        window.BringToFront();
     }
 
     private static async Task CheckForUpdatesAsync()
