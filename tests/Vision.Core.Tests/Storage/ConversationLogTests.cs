@@ -10,6 +10,19 @@ public sealed class ConversationLogTests : IDisposable
     private ConversationLog NewLog() => new(_dir.Path);
 
     [Fact]
+    public void ThePinnedRouteSurvivesAReloadAndClears()
+    {
+        var log = NewLog();
+        log.Upsert("s1", null, "From another app", "workspaceWrite");
+        log.SetChoice("s1", "Spark|m", null);
+        log.SetPinnedRoute("s1", "Spark|m");
+        Assert.Equal("Spark|m", NewLog().List().Single().PinnedRoute);
+        log.SetPinnedRoute("s1", null);
+        Assert.Null(NewLog().List().Single().PinnedRoute);
+        Assert.Equal("Spark|m", NewLog().List().Single().Route);
+    }
+
+    [Fact]
     public void SessionsAndItemsSurviveAReload()
     {
         var log = NewLog();

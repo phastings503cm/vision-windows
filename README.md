@@ -863,6 +863,16 @@ with the computer-use tools.
 }
 ```
 
+## Dispatch from other apps
+
+Another app on this PC can start a chat by dropping a JSON request in `%APPDATA%\Vision\dispatch\inbox\`, choosing from the
+models and recent folders in `dispatch\catalog.json`. UltronMail uses this for **Send to Vision**. The chat starts in the
+background on the chosen model and stays on it (no backups, no other subagent servers, and it stops rather than moves if the
+model goes) until you pick another. It never starts with full access, and what became of each request is written to
+`dispatch\results\`. A request that waits more than a day is refused, and so is a model whose plan allows only interactive use.
+`Vision.exe --background` starts the app minimised without taking the focus, for an app about to hand something over. A portable
+copy keeps this folder in its own `data` folder, so other apps only find an installed Vision.
+
 ## Where things live
 
 | What | Where |
@@ -876,6 +886,7 @@ with the computer-use tools.
 | Your subagent types | `%APPDATA%\Vision\agents\*.md` |
 | Notes imported per project | `%APPDATA%\Vision\project-notes\<project>` |
 | Task lists (every chat's) | `%APPDATA%\Vision\task-queue.json` |
+| What other apps hand over | `%APPDATA%\Vision\dispatch` |
 | Credentials vault | `%APPDATA%\Vision\vault.json` (names and details) and `vault.bin` (values, DPAPI-encrypted) |
 | Program | `%LOCALAPPDATA%\Programs\Vision` (installer) |
 

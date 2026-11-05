@@ -107,6 +107,15 @@ public partial class App : Application
             return;
         }
 
+        // Vision.exe --background: another app is about to hand over a chat. It comes up minimised and doesn't take the focus, and
+        // what it would ask at the start waits until it's opened.
+        var background = args.Contains(BackgroundArgument, StringComparer.OrdinalIgnoreCase);
+        if (background)
+        {
+            window.ShowActivated = false;
+            window.WindowState = WindowState.Minimized;
+        }
+
         window.Show();
         Model.Start();
 
@@ -115,12 +124,36 @@ public partial class App : Application
 
         _instance?.Listen(forwarded => Dispatcher.BeginInvoke(() => HandleForwarded(forwarded)));
 
+        if (background)
+        {
+            void OnOpened(object? sender, EventArgs _)
+            {
+                if (window.WindowState == WindowState.Minimized) return;
+                window.StateChanged -= OnOpened;
+                window.ShowActivated = true;
+                AskWhatStartingAsks(window);
+            }
+
+            window.StateChanged += OnOpened;
+        }
+        else
+        {
+            AskWhatStartingAsks(window);
+        }
+
+        if (config.CheckForUpdates) _ = CheckForUpdatesAsync();
+    }
+
+    /// <summary>Starts Vision for another app without taking over the screen.</summary>
+    private const string BackgroundArgument = "--background";
+
+    private void AskWhatStartingAsks(MainWindow window)
+    {
         Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, ShowDataFolderNotice);
         if (Model.NeedsSetup)
             Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => window.ShowWizard()); // offers the import once it closes
         else
             _ = window.OfferExternalImportAsync();
-        if (config.CheckForUpdates) _ = CheckForUpdatesAsync();
     }
 
     // MARK: - DSH is now Vision
@@ -234,6 +267,8 @@ public partial class App : Application
 
     private void HandleForwarded(string[] args)
     {
+        // Another app making sure Vision is running: it is.
+        if (args.Contains(BackgroundArgument, StringComparer.OrdinalIgnoreCase)) return;
         if (MainWindow is MainWindow window) window.BringToFront();
         var folder = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
         if (folder is not null && Directory.Exists(folder)) Model.OpenProject(folder);

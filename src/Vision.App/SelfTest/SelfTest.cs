@@ -222,6 +222,16 @@ public sealed partial class SelfTest
 
             await CapturePool(window, model);
 
+            // A chat another app starts through the dispatch folder.
+            try
+            {
+                await CaptureDispatch(window, model);
+            }
+            catch (Exception error)
+            {
+                Fail("dispatch", error);
+            }
+
             await CaptureMachineGlow(window, model, chat);
 
             // What the composer says it will send for a PDF, a Markdown file, a Word file, a scan and a large paste.

@@ -106,6 +106,7 @@ public sealed partial class AppModel : ObservableObject
         // A task list interrupted mid-run (crash, restart, quit) resumes by itself; one the user stopped
         // on purpose does not.
         Host.ResumeQueueIfNeeded();
+        StartDispatchWatch();
     }
 
     // MARK: - Projects
@@ -206,7 +207,11 @@ public sealed partial class AppModel : ObservableObject
     public void StopAll() => Host.StopAll();
 
     /// <summary>App exit: cancel everything without marking the queue as stopped by the user.</summary>
-    public void Shutdown() => Host.Shutdown();
+    public void Shutdown()
+    {
+        _dispatchTimer?.Stop();
+        Host.Shutdown();
+    }
 
     /// <summary>Anything working — a turn, a queue task, or a background agent.</summary>
     public bool AnythingRunning => Host.AnythingRunning;

@@ -27,6 +27,9 @@ public sealed record LogSession
     public string? Thinking { get; set; }
     /// <summary>The chat is Sensitive (see <see cref="SensitivityPolicy"/>). Null = no (an older chat). The same field as Vision for macOS.</summary>
     public bool? Sensitive { get; set; }
+    /// <summary>The route the chat stays on, when another app started it on a chosen one (see <see cref="DispatchInbox"/>): no backups, no
+    /// other servers, and it doesn't move if that route goes. Null = an ordinary chat. The same field as Vision for macOS.</summary>
+    public string? PinnedRoute { get; set; }
     /// <summary>The Claude Code session this chat's turns carry on (--resume), when it has talked to Claude Code.</summary>
     public string? ClaudeSession { get; set; }
     /// <summary>What Claude Code last said that session had cost so far (its estimate adds up across turns), so a turn's
@@ -107,6 +110,14 @@ public sealed class ConversationLog
         if (!_rows.TryGetValue(id, out var row) || (row.Route == route && row.Thinking == thinking)) return;
         row.Route = route;
         row.Thinking = thinking;
+        Persist(id);
+    }
+
+    /// <summary>Store the route the chat stays on (null: an ordinary chat).</summary>
+    public void SetPinnedRoute(string id, string? route)
+    {
+        if (!_rows.TryGetValue(id, out var row) || row.PinnedRoute == route) return;
+        row.PinnedRoute = route;
         Persist(id);
     }
 

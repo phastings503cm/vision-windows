@@ -287,6 +287,7 @@ public sealed partial class AgentHost : ObservableObject
                 RouteId = row.Route,
                 Thinking = ThinkingLevels.FromRaw(row.Thinking),
                 Sensitive = row.Sensitive == true,
+                PinnedRoute = row.PinnedRoute,
             };
             Sessions.Add(vm);
         }
@@ -1076,6 +1077,7 @@ public sealed partial class AgentHost : ObservableObject
         // serves right now: the Spark can swap models between turns, and the window/model id must follow.
         PinRouteIfUnset(vm);
         RequireGuardianSignIn(vm);
+        RequirePinnedRoute(vm);
         var profile = await ResolveRouteAsync(vm) ?? throw LlmException.NoModel();
         ct.ThrowIfCancellationRequested();
         // A Sensitive chat never sends to a model it may not use (Claude Code reads files itself; an online model with the
@@ -1104,7 +1106,7 @@ public sealed partial class AgentHost : ObservableObject
         var subagentPool = SubagentPoolFor(vm, profile, IsUnattended(sessionId));
         var key = new EngineKey(ProfileKey(profile), window, thinking, vm.Preset, skillState.Signature,
                                 Config.ComputerToolsEnabled, VisionOn(profile), shell.Executable, Vault.Revision,
-                                vm.Goal is not null, MemorySignature(vm), AgentsStampFor(vm), RoutingStamp(profile, subagentPool), IsUnattended(sessionId));
+                                vm.Goal is not null, MemorySignature(vm), AgentsStampFor(vm), RoutingStamp(profile, subagentPool, vm.PinnedRoute is not null), IsUnattended(sessionId));
         if (_engineKeys.TryGetValue(sessionId, out var previous))
         {
             // The chat was moved to another model (its model menu): say which one answers from here on.

@@ -16,9 +16,12 @@ public sealed partial class AgentHost
 {
     /// <summary>The route a chat talks to, with its key: its own while that is configured and on (one of Guardian's models while
     /// signed in counts), else the primary. None for a chat on a Guardian model while Guardian is signed out: it waits for the
-    /// sign-in rather than quietly moving to another model.</summary>
+    /// sign-in rather than quietly moving to another model. None too for a chat another app started on a route that has gone:
+    /// what it holds was sent to that model and nowhere else.</summary>
     public ProviderProfile? ChatRoute(SessionVM? vm) =>
-        GuardianSignInNeeded(vm) ? null : Config.UsableRoute(vm?.RouteId) ?? Config.ActiveProvider;
+        GuardianSignInNeeded(vm) ? null
+        : vm?.PinnedRoute is { } pinned ? Config.UsableRoute(pinned)
+        : Config.UsableRoute(vm?.RouteId) ?? Config.ActiveProvider;
 
     /// <summary>The chat is on one of Guardian's models (or a saved Guardian route) and Guardian is signed out: it says "Sign in to
     /// Guardian to use this model" instead of answering.</summary>
@@ -80,6 +83,8 @@ public sealed partial class AgentHost
     {
         // A chat on a Guardian model keeps it while signed out: signing in again brings it back.
         if (GuardianSignInNeeded(vm)) return;
+        // A chat another app started stays where it was sent (RequirePinnedRoute stops it if that has gone).
+        if (vm.PinnedRoute is not null) return;
         if (vm.RouteId is not null && Config.UsableRoute(vm.RouteId) is not null) return;
         if (Config.ActiveRoute is not { } primary || vm.RouteId == primary) return;
         var previous = vm.RouteId;
@@ -97,6 +102,8 @@ public sealed partial class AgentHost
     public void SetChatRoute(SessionVM vm, string routeId)
     {
         if (Config.UsableRoute(routeId) is null) return;
+        // The user chose: a chat another app started is an ordinary chat from here on.
+        Unpin(vm);
         if (vm.RouteId != routeId)
         {
             vm.RouteId = routeId;
@@ -123,6 +130,12 @@ public sealed partial class AgentHost
         {
             vm.RouteId = newRouteId;
             Log.SetChoice(vm.Id, newRouteId, vm.Thinking?.RawValue());
+        }
+
+        foreach (var vm in Sessions.Where(s => s.PinnedRoute == oldRouteId))
+        {
+            vm.PinnedRoute = newRouteId;
+            Log.SetPinnedRoute(vm.Id, newRouteId);
         }
     }
 

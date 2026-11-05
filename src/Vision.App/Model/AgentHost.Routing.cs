@@ -54,6 +54,8 @@ public sealed partial class AgentHost
     private IProviderClient MakeChatClient(ProviderProfile profile, string sessionId)
     {
         var primary = MakeClient(profile, sessionId);
+        // A chat another app started stays on its model: a backup could be somewhere its material isn't allowed to go.
+        if (Session(sessionId)?.PinnedRoute is not null) return primary;
         var backups = BackupRoutes(profile.RouteId).Where(b => !b.IsInteractiveOnly || !IsUnattended(sessionId)).ToList();
         // A Sensitive chat falls over only to models it may use.
         if (Session(sessionId) is { Sensitive: true }) backups = SensitivityPolicy.AdmittedBackups(backups, ShieldOn).ToList();
@@ -95,10 +97,10 @@ public sealed partial class AgentHost
     /// <summary>Changes when what a chat's engine is built with around the model does (the shield's settings, the backups,
     /// the chat's subagent pool — never how busy its servers are), so the engine, and the prompt cache with it, is rebuilt
     /// exactly then.</summary>
-    private string RoutingStamp(ProviderProfile chatRoute, SubagentPool pool)
+    private string RoutingStamp(ProviderProfile chatRoute, SubagentPool pool, bool pinned)
     {
         var backups = string.Join(",", RouteRoster.Backups(Config.Providers, chatRoute.RouteId).Select(b => b.RouteId + (b.IsPrivateRoute ? "+p" : "")));
-        return $"{Config.Privacy}|{chatRoute.IsPrivateRoute}|{chatRoute.IsInteractiveOnly}|{backups}|{pool.Signature}";
+        return $"{Config.Privacy}|{chatRoute.IsPrivateRoute}|{chatRoute.IsInteractiveOnly}|{backups}|{pool.Signature}|{pinned}";
     }
 
     // MARK: Interactive-only plans

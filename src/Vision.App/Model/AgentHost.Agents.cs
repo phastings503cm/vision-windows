@@ -159,7 +159,8 @@ public sealed partial class AgentHost
 
     /// <summary>This chat's subagent pool now: what its model may hand side tasks to (see <see cref="SubagentPool.Build"/>).</summary>
     public SubagentPool SubagentPoolFor(SessionVM vm, ProviderProfile chatRoute, bool unattended) =>
-        SubagentPool.Build(PoolRoutes(), FactsFor(chatRoute, enlisted: false), guardianSignedIn: GuardianAccount?.Invoke() is not null,
+        // A chat another app started hands side tasks only to its own model: the other servers are where its material mustn't go.
+        SubagentPool.Build(vm.PinnedRoute is null ? PoolRoutes() : [], FactsFor(chatRoute, enlisted: false), guardianSignedIn: GuardianAccount?.Invoke() is not null,
             sensitive: vm.Sensitive, shieldOn: ShieldOn, unattended: unattended, overflow: Config.SubagentsUsePrimary);
 
     /// <summary>This chat's subagent pool now (none while its model can't be resolved).</summary>
