@@ -14,13 +14,16 @@ public sealed class DispatchHostTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"vision-dispatch-{Guid.NewGuid():N}");
     private readonly FakeModelServer _server = new();
+    private readonly string _project;
 
     private static readonly ProviderProfile Main = new(ProviderKind.OpenAICompat, "main", "http://main.test/v1", "main-model");
     private static readonly ProviderProfile Chosen = new(ProviderKind.OpenAICompat, "chosen", "http://chosen.test/v1", "chosen-model");
 
     public DispatchHostTests()
     {
-        Directory.CreateDirectory(_dir);
+        // Every chat here has a project, because a chat without one makes its scratch folder in the real data folder.
+        _project = Path.Combine(_dir, "project");
+        Directory.CreateDirectory(_project);
         _server.Reset((_, _) => new FakeReply.Text("On it."));
     }
 
@@ -75,7 +78,7 @@ public sealed class DispatchHostTests : IDisposable
         }
     });
 
-    private static DispatchRequest Request(string? model = null, string? folder = null, string? id = null) => new()
+    private DispatchRequest Request(string? model = null, string? folder = null, string? id = null, bool noProject = false) => new()
     {
         Version = 1,
         Id = id ?? Guid.NewGuid().ToString(),
@@ -84,7 +87,7 @@ public sealed class DispatchHostTests : IDisposable
         Instructions = "Fix the bug",
         Context = "The note",
         Model = model,
-        Folder = folder,
+        Folder = noProject ? null : folder ?? _project,
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
@@ -113,7 +116,7 @@ public sealed class DispatchHostTests : IDisposable
     [Fact]
     public void RunsOnTheChosenModelAndStaysThere() => Run(async (host, config) =>
     {
-        var other = host.NewSession(null);
+        var other = host.NewSession(_project);
         var result = host.StartDispatch(Request(Chosen.RouteId));
         Assert.True(result.Started, result.Message);
         Assert.Contains("chosen-model", result.Message);
@@ -127,7 +130,7 @@ public sealed class DispatchHostTests : IDisposable
 
         // The primary stays what it was, the project's next chats don't start on it, and the next turn is still on the chosen one.
         Assert.Equal(Main.RouteId, config.ActiveRoute);
-        Assert.Null(config.LastChoice(null));
+        Assert.Null(config.LastChoice(_project));
         host.Send("And another thing", vm.Id);
         await Replied(vm, 2);
         Assert.Equal(["chosen.test"], Hosts());
@@ -138,7 +141,7 @@ public sealed class DispatchHostTests : IDisposable
     {
         host.StartDispatch(Request(Chosen.RouteId));
         await Replied(Session(host));
-        var other = host.NewSession(null);
+        var other = host.NewSession(_project);
         Assert.Equal(Main.RouteId, other.RouteId);
         Assert.Null(other.PinnedRoute);
         host.Send("hi", other.Id);
@@ -166,7 +169,7 @@ public sealed class DispatchHostTests : IDisposable
     {
         config.Store(new ProviderProfile(ProviderKind.OpenAICompat, "backup", "http://backup.test/v1", "backup-model") { Backup = true });
         _server.Reset((request, _) => request.Host == "chosen.test" ? new FakeReply.Transport() : new FakeReply.Text("from the backup"));
-        var vm = host.NewSession(null);
+        var vm = host.NewSession(_project);
         host.SetChatRoute(vm, Chosen.RouteId);
         host.Send("hi", vm.Id);
         await Replied(vm);
@@ -316,18 +319,26 @@ public sealed class DispatchHostTests : IDisposable
     });
 
     [Fact]
-    public void WorksInTheChosenFolderOrInNone() => Run(async (host, _) =>
+    public void WorksInTheChosenFolder() => Run(async (host, _) =>
     {
-        Assert.True(host.StartDispatch(Request(folder: _dir)).Started);
-        var inFolder = Session(host);
-        Assert.Equal(_dir, inFolder.WorkspacePath);
-        await Replied(inFolder);
-        host.RenameSession(inFolder.Id, "Done with");
+        var folder = Path.Combine(_dir, "chosen-folder");
+        Directory.CreateDirectory(folder);
+        Assert.True(host.StartDispatch(Request(folder: folder)).Started);
+        var vm = Session(host);
+        Assert.Equal(folder, vm.WorkspacePath);
+        await Replied(vm);
+    });
 
-        Assert.True(host.StartDispatch(Request()).Started);
-        var plain = Session(host);
-        Assert.Null(plain.WorkspacePath);
-        await Replied(plain);
+    /// <summary>Stopped at once: going further would make its scratch folder in the real data folder. The self-test runs one all the way, in its own.</summary>
+    [Fact]
+    public void NoFolderIsAChatWithNoProject() => Run((host, _) =>
+    {
+        Assert.True(host.StartDispatch(Request(noProject: true)).Started);
+        var vm = Session(host);
+        Assert.Null(vm.WorkspacePath);
+        Assert.True(vm.IsPlain);
+        host.StopAll();
+        return Task.CompletedTask;
     });
 
     [Fact]
