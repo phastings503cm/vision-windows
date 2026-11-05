@@ -21,7 +21,8 @@ public sealed class DispatchHostTests : IDisposable
 
     public DispatchHostTests()
     {
-        // Every chat here has a project, because a chat without one makes its scratch folder in the real data folder.
+        // Every chat here has a project, because a chat without one makes its scratch folder in the real data folder as soon as it
+        // starts. The self-test runs one all the way, in its own data folder (SelfTest.Dispatch.cs).
         _project = Path.Combine(_dir, "project");
         Directory.CreateDirectory(_project);
         _server.Reset((_, _) => new FakeReply.Text("On it."));
@@ -78,7 +79,7 @@ public sealed class DispatchHostTests : IDisposable
         }
     });
 
-    private DispatchRequest Request(string? model = null, string? folder = null, string? id = null, bool noProject = false) => new()
+    private DispatchRequest Request(string? model = null, string? folder = null, string? id = null) => new()
     {
         Version = 1,
         Id = id ?? Guid.NewGuid().ToString(),
@@ -87,7 +88,7 @@ public sealed class DispatchHostTests : IDisposable
         Instructions = "Fix the bug",
         Context = "The note",
         Model = model,
-        Folder = noProject ? null : folder ?? _project,
+        Folder = folder ?? _project,
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
@@ -327,18 +328,6 @@ public sealed class DispatchHostTests : IDisposable
         var vm = Session(host);
         Assert.Equal(folder, vm.WorkspacePath);
         await Replied(vm);
-    });
-
-    /// <summary>Stopped at once: going further would make its scratch folder in the real data folder. The self-test runs one all the way, in its own.</summary>
-    [Fact]
-    public void NoFolderIsAChatWithNoProject() => Run((host, _) =>
-    {
-        Assert.True(host.StartDispatch(Request(noProject: true)).Started);
-        var vm = Session(host);
-        Assert.Null(vm.WorkspacePath);
-        Assert.True(vm.IsPlain);
-        host.StopAll();
-        return Task.CompletedTask;
     });
 
     [Fact]

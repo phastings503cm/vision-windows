@@ -8,7 +8,8 @@ namespace Vision.App;
 // MARK: - A chat another app starts
 //
 // A request dropped in the dispatch folder, the way UltronMail does, through the running app: the catalog goes up, the chat starts in
-// the background on the model it names, and the answer is written. The route points nowhere, so nothing is sent anywhere.
+// the background on the model it names, with no project because it names no folder, and the answer is written. The route points
+// nowhere, so nothing is sent anywhere.
 
 public sealed partial class SelfTest
 {
@@ -39,6 +40,7 @@ public sealed partial class SelfTest
         try
         {
             if (vm.PinnedRoute != route) throw new InvalidOperationException("the chat isn't on the model it was sent to");
+            if (!vm.IsPlain) throw new InvalidOperationException("a request with no folder isn't a chat with no project");
             if (host.SelectedId != selected) throw new InvalidOperationException("the chat took over the screen");
             if (vm.Preset == PermissionPreset.FullAccess) throw new InvalidOperationException("the chat started with full access");
             var result = File.ReadAllText(Path.Combine(inbox.Results, id + ".json"));
