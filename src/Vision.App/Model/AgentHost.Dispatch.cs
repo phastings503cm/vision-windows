@@ -17,19 +17,19 @@ public sealed partial class AgentHost
     public const string PinnedRouteGone = "The model this chat was sent to isn't available any more. Pick a model to carry on.";
 
     /// <summary>What another app can pick from right now: the routes that are on, and Guardian's models while signed in.</summary>
-    public DispatchCatalog BuildDispatchCatalog()
+    public DispatchCatalog BuildDispatchCatalog() => DispatchCatalog.From(DispatchRoutes(), Config.ActiveRoute, Config.LiveRecentProjects);
+
+    private List<ProviderProfile> DispatchRoutes()
     {
         var routes = Config.Providers.Where(p => p.IsEnabled).ToList();
-        if (GuardianAccount?.Invoke() is not null)
+        if (GuardianAccount?.Invoke() is null) return routes;
+        foreach (var id in GuardianModelIds?.Invoke() ?? [])
         {
-            foreach (var id in GuardianModelIds?.Invoke() ?? [])
-            {
-                var routeId = GuardianRoutes.LiveRouteId(id);
-                if (routes.All(r => r.RouteId != routeId) && Config.UsableRoute(routeId) is { } live) routes.Add(live);
-            }
+            var routeId = GuardianRoutes.LiveRouteId(id);
+            if (routes.All(r => r.RouteId != routeId) && Config.UsableRoute(routeId) is { } live) routes.Add(live);
         }
 
-        return DispatchCatalog.From(routes, Config.ActiveRoute, Config.LiveRecentProjects);
+        return routes;
     }
 
     /// <summary>Starts a chat for a request, in the background: it doesn't take over the chat on screen, or change what the primary
@@ -90,15 +90,17 @@ public sealed partial class AgentHost
     }
 
     /// <summary>Publishes what can be picked, starts what's waiting, and says what became of each. The files are handled off this
-    /// thread, because a request can be megabytes and a virus scanner can hold any of them.</summary>
+    /// thread, because a request can be megabytes and a virus scanner can hold any of them. This runs every 2 seconds.</summary>
     public async Task PumpDispatchAsync(DispatchInbox inbox)
     {
-        var catalog = BuildDispatchCatalog();
+        var catalog = DispatchCatalog.From(DispatchRoutes(), Config.ActiveRoute, []);
+        var recent = Config.RecentProjects.ToList();
         var taken = await Task.Run(() =>
         {
             try
             {
-                inbox.Publish(catalog);
+                // Looking at a folder on a network drive that has gone can take seconds.
+                inbox.Publish(catalog with { Folders = recent.Where(Directory.Exists).ToList() });
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
